@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f1ea">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="心理學卡片">
+<title>心理學卡片</title>
+<style>
+:root {
+  --bg: #f6f1ea; --card: #fffdf9; --ink: #2d2a26; --sub: #7a7268; --line: #e4dcd0;
+  --accent: #6b5ca5; --accent-soft: #ece8f6;
+  --again: #c0504d; --hard: #c98a2b; --good: #3f8f5a; --easy: #3a72b0;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1d1b19; --card: #282522; --ink: #ece6dd; --sub: #a39a8e; --line: #3a3530;
+          --accent: #a99be0; --accent-soft: #34304a; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink);
+  font-family: -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+body { padding: 0 16px calc(84px + env(safe-area-inset-bottom)); max-width: 640px; margin: 0 auto; }
+h1 { font-size: 20px; margin: 18px 0 4px; }
+.muted { color: var(--sub); font-size: 13px; }
+button { font: inherit; cursor: pointer; border: none; border-radius: 10px; }
+input, textarea { font: inherit; color: var(--ink); background: var(--card); width: 100%;
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+textarea { min-height: 120px; resize: vertical; line-height: 1.6; }
+label { display: block; font-size: 14px; color: var(--sub); margin: 14px 0 6px; }
+.btn { background: var(--accent); color: #fff; padding: 12px 18px; font-weight: 600; }
+.btn.ghost { background: var(--accent-soft); color: var(--accent); }
+.btn.danger { background: transparent; color: var(--again); border: 1px solid var(--again); }
+.view { display: none; } .view.on { display: block; }
+
+/* 底部分頁 */
+nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+  display: flex; justify-content: center; padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
+nav button { flex: 1; max-width: 213px; background: none; padding: 10px 0 12px; color: var(--sub); font-size: 13px; border-radius: 0; }
+nav button b { display: block; font-size: 20px; font-weight: 400; }
+nav button.on { color: var(--accent); font-weight: 600; }
+
+/* 複習 */
+.counts { display: flex; gap: 14px; margin: 10px 0 14px; font-size: 14px; }
+.counts span b { font-size: 18px; margin-left: 4px; }
+.c-new b { color: var(--easy); } .c-learn b { color: var(--again); } .c-rev b { color: var(--good); }
+.flash { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  min-height: 300px; padding: 28px 22px; display: flex; flex-direction: column; justify-content: center;
+  text-align: center; cursor: pointer; }
+.flash .term { font-size: 28px; font-weight: 700; line-height: 1.3; }
+.flash .en { font-size: 17px; color: var(--sub); margin-top: 6px; font-style: italic; }
+.flash .def { margin-top: 22px; padding-top: 20px; border-top: 1px dashed var(--line); text-align: left;
+  font-size: 17px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
+.flash .hint { margin-top: 26px; color: var(--sub); font-size: 13px; }
+.answers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
+.answers button { color: #fff; padding: 10px 2px 9px; font-weight: 600; font-size: 15px; }
+.answers button small { display: block; font-weight: 400; font-size: 11px; opacity: .9; margin-top: 2px; }
+.a-again { background: var(--again); } .a-hard { background: var(--hard); }
+.a-good { background: var(--good); } .a-easy { background: var(--easy); }
+.showbtn { width: 100%; margin-top: 14px; }
+.done { text-align: center; padding: 60px 10px; }
+.done .big { font-size: 44px; }
+.cardtools { display: flex; justify-content: flex-end; gap: 14px; margin-top: 8px; }
+.linkbtn { background: none; color: var(--sub); font-size: 13px; padding: 4px 0; text-decoration: underline; }
+
+/* 卡片庫 */
+.search { margin: 12px 0; }
+.item { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
+.item .t { font-weight: 600; } .item .e { color: var(--sub); font-style: italic; font-size: 14px; margin-left: 6px; }
+.item .d { color: var(--sub); font-size: 14px; margin-top: 4px; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.item .s { font-size: 12px; margin-top: 6px; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+
+/* 表單 */
+.formrow { display: flex; gap: 10px; margin-top: 18px; }
+.formrow .btn { flex: 1; }
+.warn { color: var(--again); font-size: 13px; margin-top: 6px; min-height: 1em; }
+.toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+  background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: 14px;
+  opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9; }
+.toast.on { opacity: 1; }
+
+/* 設定 */
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-top: 14px; }
+.panel h3 { margin: 0 0 8px; font-size: 16px; }
+.panel p { margin: 6px 0; font-size: 14px; line-height: 1.6; color: var(--sub); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.row input[type=number] { width: 90px; }
+.banner { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 13px; line-height: 1.6;
+  background: #fbeaea; color: #8a2f2c; border: 1px solid #efc6c4; }
+.gate { display: none; }
+html.locked body > :not(.gate):not(script) { display: none !important; }
+html.locked .gate { display: flex; position: fixed; inset: 0; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
+.gate-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px 22px;
+  width: 100%; max-width: 320px; text-align: center; display: flex; flex-direction: column; gap: 12px; }
+.gate-card input { text-align: center; font-size: 20px; letter-spacing: 4px; }
+@media (prefers-color-scheme: dark) { .banner { background: #3a2423; color: #f0c2bf; border-color: #5a3634; } }
+</style>
+</head>
+<body>
+
+<script>try { if (localStorage.getItem('psy_unlocked') !== '1') document.documentElement.classList.add('locked'); } catch (e) { document.documentElement.classList.add('locked'); }</script>
+<div class="gate">
+  <div class="gate-card">
+    <div style="font-size:40px">🔒</div>
+    <div style="font-size:18px;font-weight:700">心理學卡片</div>
+    <div class="muted">請輸入密碼</div>
+    <input id="gatePw" type="password" inputmode="numeric" maxlength="12" autocomplete="off" aria-label="密碼">
+    <button class="btn" id="gateBtn">進入</button>
+    <div class="warn" id="gateErr"></div>
+  </div>
+</div>
+<div class="banner" id="banner" hidden></div>
+
+<!-- ===== 複習 ===== -->
+<section class="view on" id="v-review">
+  <h1>今天的複習</h1>
+  <div class="counts">
+    <span class="c-new">新卡<b id="n-new">0</b></span>
+    <span class="c-learn">學習中<b id="n-learn">0</b></span>
+    <span class="c-rev">待複習<b id="n-rev">0</b></span>
+  </div>
+  <div id="study"></div>
+</section>
+
+<!-- ===== 新增／編輯 ===== -->
+<section class="view" id="v-add">
+  <h1 id="add-title">新增名詞</h1>
+  <label for="f-term">中文名詞</label>
+  <input id="f-term" placeholder="例：古典制約" autocomplete="off">
+  <label for="f-en">英文原文</label>
+  <input id="f-en" placeholder="例：Classical Conditioning" autocomplete="off" autocapitalize="words">
+  <label for="f-def">定義</label>
+  <textarea id="f-def" placeholder="翻面後看到的解釋"></textarea>
+  <div class="warn" id="f-warn"></div>
+  <div class="formrow">
+    <button class="btn ghost" id="f-cancel" style="display:none">取消</button>
+    <button class="btn" id="f-save">儲存並繼續新增</button>
+  </div>
+  <div class="formrow" id="f-delrow" style="display:none">
+    <button class="btn danger" id="f-del">刪除這張卡</button>
+  </div>
+</section>
+
+<!-- ===== 卡片庫 ===== -->
+<section class="view" id="v-list">
+  <h1>卡片庫</h1>
+  <div class="muted" id="list-sum"></div>
+  <input class="search" id="q" placeholder="搜尋中文、英文或定義" autocomplete="off">
+  <div id="list"></div>
+</section>
+
+<!-- ===== 設定 ===== -->
+<section class="view" id="v-set">
+  <h1>設定</h1>
+  <div class="panel">
+    <h3>每天新卡數量</h3>
+    <p>每天最多從還沒背過的卡裡拿幾張出來。複習卡不受這個數字限制。</p>
+    <div class="row"><input type="number" id="s-new" min="0" max="999"><button class="btn ghost" id="s-new-save">儲存</button></div>
+  </div>
+  <div class="panel">
+    <h3>備份</h3>
+    <p>卡片和進度只存在這支手機的瀏覽器裡。清除瀏覽器資料、換手機都會讓資料消失，建議每週按一次「下載備份」。</p>
+    <div class="row">
+      <button class="btn" id="b-export">下載備份</button>
+      <button class="btn ghost" id="b-import">從備份還原</button>
+      <input type="file" id="b-file" accept=".json,application/json" hidden>
+    </div>
+    <p id="b-last"></p>
+    <div class="row"><button class="linkbtn" id="b-undo" style="display:none"></button></div>
+  </div>
+  <div class="panel">
+    <h3>使用小提醒</h3>
+    <p><b>iPhone：</b>第一次就先用 Safari 的「分享 → 加入主畫面」，之後<b>只從主畫面的圖示打開</b>。主畫面 App 和 Safari 分頁的資料是分開存的，而且只在 Safari 分頁用的話，太久沒開資料可能會被 iPhone 自動清掉。</p>
+    <p>不要從 LINE 裡直接點開來用，資料會存在 LINE 裡面，也沒辦法備份。</p>
+    <p>電腦上可用鍵盤：空白鍵翻面，1／2／3／4 對應「再來／困難／良好／簡單」。</p>
+  </div>
+</section>
+
+<nav>
+  <button data-v="review" class="on"><b>📖</b>複習</button>
+  <button data-v="add"><b>✏️</b>新增</button>
+  <button data-v="list"><b>🗂️</b>卡片庫</button>
+  <button data-v="set"><b>⚙️</b>設定</button>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+  // ---- 儲存：所有東西放在同一個 key，一次寫入，不會出現卡片存了、進度沒存的半套狀態 ----
+  const KEY = 'psy_anki_v1';
+  const MIN = 60 * 1000, DAY = 24 * 60 * MIN;
+  const REVIEW_PER_DAY = 500;
+  // SM-2 參數（與 daily-japanese 的 Anki 相同，已實際用過）
+  const LEARN_STEPS = [1, 10], GRAD_IV = 1, EASY_IV = 4, RELEARN_STEP = 10;
+  const START_EASE = 2.5, EASE_MIN = 1.3, HARD_MULT = 1.2, EASY_BONUS = 1.3, LAPSE_MULT = 0.1, MAX_IV = 36500;
+
+  const PHASES = ['learning', 'relearning', 'review'];
+  const num = (v) => { const n = Number(v); return isFinite(n) ? n : null; };
+  function blank() { return { cards: [], state: {}, daily: {}, settings: { newPerDay: 20 }, lastBackup: 0 }; }
+  // 把任何來源（本機或備份檔）的資料整理成乾淨格式；格式不對就丟 Error
+  function sanitize(o) {
+    if (!o || !Array.isArray(o.cards)) throw new Error('bad');
+    const seen = new Set(), cards = [];
+    o.cards.forEach(c => {
+      if (!c || typeof c.term !== 'string' || c.id == null) return;
+      const id = String(c.id); if (seen.has(id)) return; seen.add(id);
+      cards.push({ id, term: c.term, en: typeof c.en === 'string' ? c.en : '', def: typeof c.def === 'string' ? c.def : '',
+                   created: num(c.created) || 0, updated: num(c.updated) || undefined });
+    });
+    const state = {};
+    Object.keys(o.state || {}).forEach(id => {
+      const s = o.state[id];
+      if (!seen.has(id) || !s || !PHASES.includes(s.phase) || num(s.due) == null) return;   // 進度壞掉＝當新卡重來
+      state[id] = { phase: s.phase, due: num(s.due), step: num(s.step) || 0, reps: num(s.reps) || 0,
+                    interval: num(s.interval) || undefined, ease: num(s.ease) || undefined, ts: num(s.ts) || undefined };
+    });
+    const d = o.daily || {};
+    return { cards, state, daily: { date: String(d.date || ''), newCount: num(d.newCount) || 0 },
+             settings: { newPerDay: Math.max(0, Math.min(999, parseInt((o.settings || {}).newPerDay, 10) || 20)) },
+             lastBackup: num(o.lastBackup) || 0 };
+  }
+  function load() {
+    const raw = localStorage.getItem(KEY);
+    if (raw == null) return blank();
+    try { return sanitize(JSON.parse(raw)); }
+    catch (e) {
+      // 讀不出來時先把原始資料另存一份，免得下一次存檔把它永久蓋掉
+      try { localStorage.setItem(KEY + '_corrupt_' + Date.now(), raw); } catch (e2) {}
+      setTimeout(() => alert('卡片資料讀取失敗，原始資料已另外保存。請先不要繼續新增，聯絡做這個網站的人處理。'), 300);
+      return blank();
+    }
+  }
+  let db = load();
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
+    catch (e) { return false; }
+  }
+  // 所有修改都經過這裡：存失敗就把記憶體裡的資料退回修改前，畫面和手機裡的資料永遠一致
+  function mutate(fn) {
+    const snap = JSON.stringify(db);
+    fn();
+    if (save()) return true;
+    db = JSON.parse(snap);
+    toast('⚠️ 沒存到，手機空間可能不足');
+    return false;
+  }
+  // 另一個分頁改了資料 → 這裡重新讀，避免用舊資料蓋掉新資料
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY) return;
+    db = load();
+    if (cur && !db.cards.some(c => c.id === cur.id)) cur = null;
+    if (active !== 'add') show(active);
+  });
+  // 請瀏覽器把這個網站的資料標成「持久保存」，降低被自動清除的機率（不支援就算了）
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+  // ---- 換日界線：每天凌晨 1:00（凌晨 0–1 點還算前一天）----
+  const DAY_CUT = 1;
+  const studyDayDate = (ts) => { const d = new Date(ts == null ? Date.now() : ts); if (d.getHours() < DAY_CUT) d.setDate(d.getDate() - 1); return d; };
+  const todayStr = () => { const d = studyDayDate(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); };
+  const dayStart = (ts) => { const d = studyDayDate(ts); d.setHours(DAY_CUT, 0, 0, 0); return d.getTime(); };
+  const fmtMD = (ts) => { const d = new Date(ts); return (d.getMonth() + 1) + '/' + d.getDate(); };
+  const dayLabel = (n) => n + '天·' + fmtMD(dayStart(Date.now()) + n * DAY);
+
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const sh = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const norm = (s) => String(s || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const $ = (id) => document.getElementById(id);
+
+  function daily() {
+    if (db.daily.date !== todayStr()) db.daily = { date: todayStr(), newCount: 0 };
+    return db.daily;
+  }
+
+  // ---- 排程 ----
+  let queue = [], cur = null, flipped = false;
+  function buildQueue() {
+    const now = Date.now(), ahead = now + 20 * MIN, dayEnd = dayStart(now) + DAY;
+    const learn = [], rev = [], fresh = [];
+    db.cards.forEach(c => {
+      const st = db.state[c.id];
+      if (!st) fresh.push(c);
+      else if ((st.phase === 'learning' || st.phase === 'relearning') && st.due <= ahead) learn.push(c);
+      else if (st.phase === 'review' && st.due < dayEnd) rev.push(c);
+    });
+    learn.sort((a, b) => db.state[a.id].due - db.state[b.id].due);
+    rev.sort((a, b) => db.state[a.id].due - db.state[b.id].due);
+    const revUse = rev.slice(0, REVIEW_PER_DAY);
+    fresh.sort((a, b) => (a.created || 0) - (b.created || 0));   // 新卡依新增順序出
+    const budget = Math.max(0, (db.settings.newPerDay | 0) - daily().newCount);
+    queue = learn.concat(sh(revUse)).concat(fresh.slice(0, budget));
+  }
+  function preview(c, r) {
+    const st = db.state[c.id], ph = st ? st.phase : 'learning';
+    if (ph === 'learning') {
+      const step = st ? (st.step || 0) : 0;
+      if (r === 'again') return LEARN_STEPS[0] + ' 分';
+      if (r === 'hard') return Math.round((LEARN_STEPS[step] || 1) * 1.5) + ' 分';
+      if (r === 'good') return (step + 1 >= LEARN_STEPS.length) ? dayLabel(GRAD_IV) : (LEARN_STEPS[step + 1] + ' 分');
+      return dayLabel(EASY_IV);
+    }
+    if (ph === 'relearning') {
+      const riv = Math.max(1, st.interval || 1);
+      if (r === 'again') return RELEARN_STEP + ' 分';
+      if (r === 'hard') return Math.round(RELEARN_STEP * 1.5) + ' 分';
+      if (r === 'good') return dayLabel(riv);
+      return dayLabel(Math.max(riv + 2, 3));
+    }
+    const iv = st.interval || 1, ease = st.ease || START_EASE;
+    if (r === 'again') return RELEARN_STEP + ' 分';
+    if (r === 'hard') return dayLabel(Math.min(MAX_IV, Math.max(iv + 1, Math.round(iv * HARD_MULT))));
+    if (r === 'good') return dayLabel(Math.min(MAX_IV, Math.round(iv * ease)));
+    return dayLabel(Math.min(MAX_IV, Math.round(iv * ease * EASY_BONUS)));
+  }
+  function schedule(c, r) {
+    const now = Date.now();
+    let st = db.state[c.id];
+    if (!st) { daily().newCount++; st = { phase: 'learning', step: 0, reps: 0 }; }
+    if (st.phase === 'learning') {
+      if (r === 'again') { st.step = 0; st.due = now + LEARN_STEPS[0] * MIN; }
+      else if (r === 'hard') { st.due = now + Math.round((LEARN_STEPS[st.step || 0] || 1) * 1.5) * MIN; }
+      else if (r === 'good') {
+        st.step = (st.step || 0) + 1;
+        if (st.step >= LEARN_STEPS.length) { st.phase = 'review'; st.ease = START_EASE; st.interval = GRAD_IV; st.due = dayStart(now) + GRAD_IV * DAY; }
+        else st.due = now + LEARN_STEPS[st.step] * MIN;
+      } else { st.phase = 'review'; st.ease = START_EASE; st.interval = EASY_IV; st.due = dayStart(now) + EASY_IV * DAY; }
+    } else if (st.phase === 'relearning') {
+      const riv = Math.max(1, st.interval || 1);
+      if (r === 'again') st.due = now + RELEARN_STEP * MIN;
+      else if (r === 'hard') st.due = now + Math.round(RELEARN_STEP * 1.5) * MIN;
+      else if (r === 'good') { st.phase = 'review'; st.interval = riv; st.due = dayStart(now) + riv * DAY; }
+      else { st.phase = 'review'; st.interval = Math.max(riv + 2, 3); st.due = dayStart(now) + st.interval * DAY; }
+    } else {
+      const iv = st.interval || 1, ease = st.ease || START_EASE;
+      if (r === 'again') { st.ease = Math.max(EASE_MIN, ease - 0.20); st.interval = Math.max(1, Math.round(iv * LAPSE_MULT)); st.phase = 'relearning'; st.due = now + RELEARN_STEP * MIN; }
+      else if (r === 'hard') { st.ease = Math.max(EASE_MIN, ease - 0.15); st.interval = Math.min(MAX_IV, Math.max(iv + 1, Math.round(iv * HARD_MULT))); st.due = dayStart(now) + st.interval * DAY; }
+      else if (r === 'good') { st.interval = Math.min(MAX_IV, Math.round(iv * ease)); st.due = dayStart(now) + st.interval * DAY; }
+      else { st.ease = ease + 0.15; st.interval = Math.min(MAX_IV, Math.round(iv * ease * EASY_BONUS)); st.due = dayStart(now) + st.interval * DAY; }
+    }
+    st.reps = (st.reps || 0) + 1;
+    st.ts = now;
+    db.state[c.id] = st;
+  }
+
+  // ---- 複習畫面 ----
+  function counts() {
+    let nNew = 0, nLearn = 0, nRev = 0;
+    queue.forEach(c => { const st = db.state[c.id]; if (!st) nNew++; else if (st.phase === 'review') nRev++; else nLearn++; });
+    $('n-new').textContent = nNew; $('n-learn').textContent = nLearn; $('n-rev').textContent = nRev;
+  }
+  // avoidId：剛答完的那張，避免馬上又出（除非只剩它）。沒傳＝只是重畫，正在看的卡還在就不換
+  function nextCard(avoidId) {
+    buildQueue(); counts();
+    if (!avoidId && cur && queue.some(c => c.id === cur.id)) {
+      cur = queue.find(c => c.id === cur.id);   // 拿最新內容（可能剛編輯過）
+      renderStudy(); return;
+    }
+    const now = Date.now();
+    // 學習中的卡如果還沒到時間，先出別張；只剩它們才提前出
+    const ready = queue.filter(c => { const st = db.state[c.id]; return !st || st.phase === 'review' || st.due <= now; });
+    const pool = ready.length ? ready : queue;
+    cur = pool.find(c => c.id !== avoidId) || pool[0] || null;
+    flipped = false;
+    renderStudy();
+  }
+  function renderStudy() {
+    const box = $('study');
+    if (!db.cards.length) {
+      box.innerHTML = '<div class="done"><div class="big">🌱</div><p>還沒有任何卡片</p><button class="btn" id="go-add">新增第一個名詞</button></div>';
+      $('go-add').onclick = () => show('add');
+      return;
+    }
+    if (!cur) {
+      const unseen = db.cards.filter(c => !db.state[c.id]).length;
+      box.innerHTML = '<div class="done"><div class="big">🎉</div><p><b>今天的份做完了</b></p>' +
+        '<p class="muted">' + (unseen ? '還有 ' + unseen + ' 張新卡沒背，明天會繼續出（每天 ' + db.settings.newPerDay + ' 張）' : '所有卡片都背過了') + '</p></div>';
+      return;
+    }
+    const c = cur;
+    let h = '<div class="flash" id="flash"><div class="term">' + esc(c.term) + '</div>' +
+      (c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');
+    if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
+    else h += '<div class="hint">先想想它的定義，再點一下翻面</div>';
+    h += '</div>';
+    if (flipped) {
+      h += '<div class="answers">' + [['again', '再來'], ['hard', '困難'], ['good', '良好'], ['easy', '簡單']]
+        .map(([r, t]) => '<button class="a-' + r + '" data-r="' + r + '">' + t + '<small>' + preview(c, r) + '</small></button>').join('') + '</div>';
+    } else h += '<button class="btn showbtn" id="showbtn">顯示答案</button>';
+    h += '<div class="cardtools"><button class="linkbtn" id="edit-cur">編輯這張</button></div>';
+    box.innerHTML = h;
+    $('flash').onclick = () => { if (!flipped) flip(); };
+    if ($('showbtn')) $('showbtn').onclick = flip;
+    box.querySelectorAll('.answers button').forEach(b => b.onclick = () => answer(b.dataset.r));
+    $('edit-cur').onclick = () => openEdit(c.id);
+  }
+  function flip() { flipped = true; renderStudy(); }
+  function answer(r) {
+    if (!cur || !flipped) return;
+    const c = cur;
+    if (mutate(() => schedule(c, r))) nextCard(c.id);
+  }
+  // 學習中卡片到點時，畫面若停在「做完了」要自己更新
+  setInterval(() => { if (active === 'review' && !cur && db.cards.length) nextCard(); }, 30 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && active === 'review') nextCard(); });
+  document.addEventListener('keydown', (e) => {
+    if (active !== 'review' || !cur || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!flipped) flip(); else answer('good'); }
+    else if (flipped && '1234'.includes(e.key)) answer(['again', 'hard', 'good', 'easy'][+e.key - 1]);
+  });
+
+  // ---- 新增／編輯 ----
+  let editing = null;   // 正在編輯的卡片 id；null＝新增
+  function resetForm() {
+    editing = null;
+    $('f-term').value = ''; $('f-en').value = ''; $('f-def').value = ''; $('f-warn').textContent = '';
+    $('add-title').textContent = '新增名詞'; $('f-save').textContent = '儲存並繼續新增';
+    $('f-cancel').style.display = 'none'; $('f-delrow').style.display = 'none';
+  }
+  let returnTo = 'list';
+  function openEdit(id) {
+    const c = db.cards.find(x => x.id === id); if (!c) return;
+    returnTo = active;
+    show('add', true);
+    editing = id;
+    $('f-term').value = c.term; $('f-en').value = c.en || ''; $('f-def').value = c.def || ''; $('f-warn').textContent = '';
+    $('add-title').textContent = '編輯名詞'; $('f-save').textContent = '儲存修改';
+    $('f-cancel').style.display = ''; $('f-delrow').style.display = '';
+  }
+  function dupOf(term, exceptId) { const n = norm(term); return db.cards.find(c => c.id !== exceptId && norm(c.term) === n); }
+  $('f-term').addEventListener('input', () => {
+    const d = dupOf($('f-term').value, editing);
+    $('f-warn').textContent = d ? '已經有「' + d.term + '」這張卡了' : '';
+  });
+  $('f-save').onclick = () => {
+    const term = $('f-term').value.trim(), en = $('f-en').value.trim(), def = $('f-def').value.trim();
+    if (!term) { $('f-warn').textContent = '中文名詞不能空白'; $('f-term').focus(); return; }
+    if (dupOf(term, editing)) { $('f-warn').textContent = '已經有「' + term + '」這張卡了，請改用編輯'; return; }
+    if (editing) {
+      const id = editing;
+      // 只改內容，id 不變 → 背誦進度保留
+      if (mutate(() => { const c = db.cards.find(x => x.id === id); if (c) Object.assign(c, { term, en, def, updated: Date.now() }); })) {
+        toast('已儲存修改'); const back = returnTo; resetForm(); show(back);
+      }
+    } else {
+      if (mutate(() => db.cards.push({ id: newId(), term, en, def, created: Date.now() }))) {
+        toast('已新增「' + term + '」'); resetForm(); $('f-term').focus();
+      }
+    }
+  };
+  $('f-cancel').onclick = () => { const back = returnTo; resetForm(); show(back); };
+  $('f-del').onclick = () => {
+    const c = db.cards.find(x => x.id === editing); if (!c) return;
+    if (!confirm('確定刪除「' + c.term + '」？它的背誦進度也會一起刪掉。')) return;
+    const id = editing;
+    if (mutate(() => { db.cards = db.cards.filter(x => x.id !== id); delete db.state[id]; })) {
+      if (cur && cur.id === id) cur = null;
+      toast('已刪除'); const back = returnTo; resetForm(); show(back);
+    }
+  };
+
+  // ---- 卡片庫 ----
+  function statusOf(c) {
+    const st = db.state[c.id];
+    if (!st) return '新卡';
+    if (st.phase !== 'review') return '學習中';
+    const days = Math.round((dayStart(st.due) - dayStart(Date.now())) / DAY);
+    return '間隔 ' + st.interval + ' 天 · ' + (days <= 0 ? '今天複習' : fmtMD(st.due) + ' 複習');
+  }
+  function renderList() {
+    const q = norm($('q').value);
+    const all = db.cards.slice().sort((a, b) => (b.created || 0) - (a.created || 0));
+    const hit = q ? all.filter(c => norm(c.term + ' ' + (c.en || '') + ' ' + (c.def || '')).includes(q)) : all;
+    const learned = db.cards.filter(c => db.state[c.id]).length;
+    $('list-sum').textContent = '共 ' + db.cards.length + ' 張，背過 ' + learned + ' 張' + (q ? '；搜尋到 ' + hit.length + ' 張' : '');
+    $('list').innerHTML = hit.length ? hit.map(c =>
+      '<div class="item" data-id="' + esc(c.id) + '"><div><span class="t">' + esc(c.term) + '</span>' +
+      (c.en ? '<span class="e">' + esc(c.en) + '</span>' : '') + '</div>' +
+      (c.def ? '<div class="d">' + esc(c.def) + '</div>' : '') +
+      '<div class="s"><span class="tag">' + statusOf(c) + '</span></div></div>').join('')
+      : '<p class="muted">' + (q ? '找不到符合的卡片' : '還沒有卡片，到「新增」加第一張吧') + '</p>';
+    $('list').querySelectorAll('.item').forEach(el => el.onclick = () => openEdit(el.dataset.id));
+  }
+  $('q').addEventListener('input', renderList);
+
+  // ---- 設定與備份 ----
+  const UNDO_KEY = KEY + '_before_restore';
+  function renderSet() {
+    $('s-new').value = db.settings.newPerDay;
+    $('b-last').textContent = db.lastBackup ? '上次按下備份：' + new Date(db.lastBackup).toLocaleString('zh-TW') : '還沒有備份過';
+    let u = null; try { u = JSON.parse(localStorage.getItem(UNDO_KEY) || 'null'); } catch (e) {}
+    $('b-undo').style.display = u && u.at ? '' : 'none';
+    if (u && u.at) $('b-undo').textContent = '復原到還原前（' + new Date(u.at).toLocaleString('zh-TW') + '，' + ((u.data && u.data.cards) || []).length + ' 張卡）';
+  }
+  $('s-new-save').onclick = () => {
+    const n = Math.max(0, Math.min(999, parseInt($('s-new').value, 10) || 0));
+    if (mutate(() => { db.settings.newPerDay = n; })) toast('每天新卡改成 ' + n + ' 張');
+    renderSet();
+  };
+  $('b-export').onclick = async () => {
+    const d = new Date(), name = 'psych-cards-' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + '.json';
+    const text = JSON.stringify(db, null, 1);
+    let ok = false;
+    // 手機優先用分享選單（iPhone 可存到「檔案」App、Android 可存到雲端硬碟或傳給自己）；不支援才直接下載
+    try {
+      const file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); ok = true; }
+    } catch (e) { if (e && e.name === 'AbortError') { toast('已取消備份'); return; } }
+    if (!ok) {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 120 * 1000);
+    }
+    mutate(() => { db.lastBackup = Date.now(); });
+    renderSet();
+  };
+  $('b-import').onclick = () => $('b-file').click();
+  $('b-file').onchange = () => {
+    const f = $('b-file').files[0];
+    $('b-file').value = '';   // 先清掉，取消後再選同一個檔案才會觸發
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let next;
+      try { next = sanitize(JSON.parse(rd.result)); } catch (e) { alert('這個檔案不是有效的備份檔'); return; }
+      if (!confirm('備份裡有 ' + next.cards.length + ' 張卡。還原會用備份取代目前的 ' + db.cards.length + ' 張卡和所有進度。\n（目前的資料會先保留一份，按錯可以在設定頁復原）\n確定嗎？')) return;
+      try { localStorage.setItem(UNDO_KEY, JSON.stringify({ at: Date.now(), data: db })); }
+      catch (e) { if (!confirm('手機空間不足，沒辦法先保留目前的資料，還原後就回不去了。仍要還原嗎？')) return; }
+      if (mutate(() => { db = next; })) { cur = null; toast('已還原 ' + db.cards.length + ' 張卡'); }
+      renderSet();
+    };
+    rd.readAsText(f);
+  };
+  $('b-undo').onclick = () => {
+    let u = null; try { u = JSON.parse(localStorage.getItem(UNDO_KEY) || 'null'); } catch (e) {}
+    if (!u || !u.data) return;
+    let prev; try { prev = sanitize(u.data); } catch (e) { alert('保留的資料讀不出來'); return; }
+    if (!confirm('回到還原前的 ' + prev.cards.length + ' 張卡和進度？目前的資料會被取代。')) return;
+    if (mutate(() => { db = prev; })) { cur = null; try { localStorage.removeItem(UNDO_KEY); } catch (e) {} toast('已復原'); }
+    renderSet();
+  };
+
+  // ---- 分頁切換 ----
+  let active = 'review';
+  function show(v, keepForm) {
+    if (v !== 'add' && editing && !keepForm) resetForm();
+    active = v;
+    document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+    document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    window.scrollTo(0, 0);
+    if (v === 'review') nextCard();
+    else if (v === 'list') renderList();
+    else if (v === 'set') renderSet();
+  }
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+    if (b.dataset.v === 'add' && editing) resetForm();   // 編輯到一半點「新增」＝放棄編輯、開空白表單
+    show(b.dataset.v);
+  });
+
+  let tt;
+  function toast(m) { const t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 1800); }
+
+  // 開啟環境檢查：LINE／IG／FB 內建瀏覽器，或 iPhone 沒有從主畫面開 → 顯示提醒
+  (function envWarn() {
+    const ua = navigator.userAgent || '';
+    const inApp = /Line\/|FBAN|FBAV|Instagram/i.test(ua);
+    const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    let msg = '';
+    if (inApp) msg = '⚠️ 你現在是在 LINE（或其他 App）裡面開的，卡片會存在那個 App 裡、也沒辦法備份。請按右上角選單「用預設瀏覽器開啟」。';
+    else if (ios && !standalone) msg = '⚠️ 建議先按 Safari 下方的「分享 → 加入主畫面」，之後從主畫面圖示打開再開始加卡片（主畫面和 Safari 的資料是分開的）。';
+    if (msg) { $('banner').textContent = msg; $('banner').hidden = false; }
+  })();
+
+  // 軟性密碼門：只擋隨手點進來的人，不是加密（頁面裡只放密碼的 SHA-256，不放明碼）
+  (function gate() {
+    const H = 'fc70db0a12d574a3a3b2331e5b1b77f1f7d4086daebbf8521c8e6892cbd0abce';
+    if (!document.documentElement.classList.contains('locked')) return;
+    const go = async () => {
+      const v = $('gatePw').value.trim();
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v));
+      const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+      if (hex === H) {
+        try { localStorage.setItem('psy_unlocked', '1'); } catch (e) {}
+        document.documentElement.classList.remove('locked');
+      } else { $('gateErr').textContent = '密碼不對，再試一次'; $('gatePw').select(); }
+    };
+    $('gateBtn').onclick = go;
+    $('gatePw').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+    setTimeout(() => $('gatePw').focus(), 50);
+  })();
+
+  show('review');
+})();
+</script>
+</body>
+</html>
