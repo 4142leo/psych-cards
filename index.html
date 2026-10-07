@@ -56,6 +56,9 @@ nav button.on { color: var(--accent); font-weight: 600; }
 .answers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
 .answers button { color: #fff; padding: 10px 2px 9px; font-weight: 600; font-size: 15px; }
 .answers button small { display: block; font-weight: 400; font-size: 11px; opacity: .9; margin-top: 2px; }
+.answers.two { grid-template-columns: 1fr 1fr; }
+.freebar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
 .a-again { background: var(--again); } .a-hard { background: var(--hard); }
 .a-good { background: var(--good); } .a-easy { background: var(--easy); }
 .showbtn { width: 100%; margin-top: 14px; }
@@ -155,11 +158,6 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
 <!-- ===== 設定 ===== -->
 <section class="view" id="v-set">
   <h1>設定</h1>
-  <div class="panel">
-    <h3>每天新卡數量</h3>
-    <p>每天最多從還沒背過的卡裡拿幾張出來。複習卡不受這個數字限制。</p>
-    <div class="row"><input type="number" id="s-new" min="0" max="999"><button class="btn ghost" id="s-new-save">儲存</button></div>
-  </div>
   <div class="panel">
     <h3>備份</h3>
     <p>卡片和進度只存在這支手機的瀏覽器裡。清除瀏覽器資料、換手機都會讓資料消失，建議每週按一次「下載備份」。</p>
@@ -292,8 +290,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     rev.sort((a, b) => db.state[a.id].due - db.state[b.id].due);
     const revUse = rev.slice(0, REVIEW_PER_DAY);
     fresh.sort((a, b) => (a.created || 0) - (b.created || 0));   // 新卡依新增順序出
-    const budget = Math.max(0, (db.settings.newPerDay | 0) - daily().newCount);
-    queue = learn.concat(sh(revUse)).concat(fresh.slice(0, budget));
+    queue = learn.concat(sh(revUse)).concat(fresh);   // 新卡不設每日上限，全部都出
   }
   function preview(c, r) {
     const st = db.state[c.id], ph = st ? st.phase : 'learning';
@@ -353,9 +350,35 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     queue.forEach(c => { const st = db.state[c.id]; if (!st) nNew++; else if (st.phase === 'review') nRev++; else nLearn++; });
     $('n-new').textContent = nNew; $('n-learn').textContent = nLearn; $('n-rev').textContent = nRev;
   }
+  // ---- 自由複習：排程的份做完後，所有卡隨機一直輪；只在記憶體裡跑，不改任何排程資料 ----
+  let free = null;   // null＝一般排程模式；{ round, left:[卡片 id] }＝自由複習中
+  function startFree() { free = { round: 0, left: [] }; cur = null; nextCard(); }
+  function stopFree() { free = null; cur = null; nextCard(); }
+  function nextFree(avoidId) {
+    const ids = new Set(db.cards.map(c => c.id));
+    free.left = free.left.filter(id => ids.has(id));   // 卡片可能剛被刪掉
+    if (!avoidId && cur && free.left.includes(cur.id)) { cur = db.cards.find(c => c.id === cur.id); renderStudy(); return; }
+    if (!free.left.length) {   // 這一輪輪完 → 重新洗牌開下一輪，並避免新一輪第一張剛好是上一張
+      free.round++;
+      free.left = sh(db.cards.map(c => c.id));
+      if (free.left.length > 1 && free.left[0] === avoidId) free.left.push(free.left.shift());
+    }
+    cur = db.cards.find(c => c.id === free.left[0]) || null;
+    flipped = false;
+    renderStudy();
+  }
+  function answerFree(ok) {
+    if (!cur || !flipped) return;
+    const id = cur.id;
+    free.left = free.left.filter(x => x !== id);
+    if (!ok) free.left.splice(Math.min(3, free.left.length), 0, id);   // 還不熟：隔幾張再出一次
+    nextFree(id);
+  }
+
   // avoidId：剛答完的那張，避免馬上又出（除非只剩它）。沒傳＝只是重畫，正在看的卡還在就不換
   function nextCard(avoidId) {
     buildQueue(); counts();
+    if (free) { nextFree(avoidId); return; }
     if (!avoidId && cur && queue.some(c => c.id === cur.id)) {
       cur = queue.find(c => c.id === cur.id);   // 拿最新內容（可能剛編輯過）
       renderStudy(); return;
@@ -376,18 +399,27 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
       return;
     }
     if (!cur) {
-      const unseen = db.cards.filter(c => !db.state[c.id]).length;
-      box.innerHTML = '<div class="done"><div class="big">🎉</div><p><b>今天的份做完了</b></p>' +
-        '<p class="muted">' + (unseen ? '還有 ' + unseen + ' 張新卡沒背，明天會繼續出（每天 ' + db.settings.newPerDay + ' 張）' : '所有卡片都背過了') + '</p></div>';
+      box.innerHTML = '<div class="done"><div class="big">🎉</div><p><b>今天排定的份做完了</b></p>' +
+        '<p class="muted">想再多背，可以自由複習全部 ' + db.cards.length + ' 張卡。<br>自由複習不會改動下次出現的日期。</p>' +
+        '<button class="btn" id="go-free">繼續自由複習</button></div>';
+      $('go-free').onclick = startFree;
       return;
     }
     const c = cur;
-    let h = '<div class="flash" id="flash"><div class="term">' + esc(c.term) + '</div>' +
+    let h = '';
+    if (free) {
+      h += '<div class="freebar"><span>🔁 自由複習 · 第 ' + free.round + ' 輪 · 這輪還剩 ' + free.left.length + ' 張</span>' +
+        '<button class="linkbtn" id="stop-free">' + (queue.length ? '回到排程（' + queue.length + ' 張到期）' : '結束') + '</button></div>';
+    }
+    h += '<div class="flash" id="flash"><div class="term">' + esc(c.term) + '</div>' +
       (c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');
     if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
     else h += '<div class="hint">先想想它的定義，再點一下翻面</div>';
     h += '</div>';
-    if (flipped) {
+    if (flipped && free) {
+      h += '<div class="answers two"><button class="a-again" data-f="0">還不熟<small>這輪再出一次</small></button>' +
+        '<button class="a-good" data-f="1">記得<small>這輪不再出</small></button></div>';
+    } else if (flipped) {
       h += '<div class="answers">' + [['again', '再來'], ['hard', '困難'], ['good', '良好'], ['easy', '簡單']]
         .map(([r, t]) => '<button class="a-' + r + '" data-r="' + r + '">' + t + '<small>' + preview(c, r) + '</small></button>').join('') + '</div>';
     } else h += '<button class="btn showbtn" id="showbtn">顯示答案</button>';
@@ -395,7 +427,8 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     box.innerHTML = h;
     $('flash').onclick = () => { if (!flipped) flip(); };
     if ($('showbtn')) $('showbtn').onclick = flip;
-    box.querySelectorAll('.answers button').forEach(b => b.onclick = () => answer(b.dataset.r));
+    box.querySelectorAll('.answers button').forEach(b => b.onclick = () => free ? answerFree(b.dataset.f === '1') : answer(b.dataset.r));
+    if ($('stop-free')) $('stop-free').onclick = stopFree;
     $('edit-cur').onclick = () => openEdit(c.id);
   }
   function flip() { flipped = true; renderStudy(); }
@@ -409,6 +442,11 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   document.addEventListener('visibilitychange', () => { if (!document.hidden && active === 'review') nextCard(); });
   document.addEventListener('keydown', (e) => {
     if (active !== 'review' || !cur || /INPUT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if (free) {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!flipped) flip(); else answerFree(true); }
+      else if (flipped && (e.key === '1' || e.key === '2')) answerFree(e.key === '2');
+      return;
+    }
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!flipped) flip(); else answer('good'); }
     else if (flipped && '1234'.includes(e.key)) answer(['again', 'hard', 'good', 'easy'][+e.key - 1]);
   });
@@ -490,17 +528,11 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   // ---- 設定與備份 ----
   const UNDO_KEY = KEY + '_before_restore';
   function renderSet() {
-    $('s-new').value = db.settings.newPerDay;
     $('b-last').textContent = db.lastBackup ? '上次按下備份：' + new Date(db.lastBackup).toLocaleString('zh-TW') : '還沒有備份過';
     let u = null; try { u = JSON.parse(localStorage.getItem(UNDO_KEY) || 'null'); } catch (e) {}
     $('b-undo').style.display = u && u.at ? '' : 'none';
     if (u && u.at) $('b-undo').textContent = '復原到還原前（' + new Date(u.at).toLocaleString('zh-TW') + '，' + ((u.data && u.data.cards) || []).length + ' 張卡）';
   }
-  $('s-new-save').onclick = () => {
-    const n = Math.max(0, Math.min(999, parseInt($('s-new').value, 10) || 0));
-    if (mutate(() => { db.settings.newPerDay = n; })) toast('每天新卡改成 ' + n + ' 張');
-    renderSet();
-  };
   $('b-export').onclick = async () => {
     const d = new Date(), name = 'psych-cards-' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + '.json';
     const text = JSON.stringify(db, null, 1);
