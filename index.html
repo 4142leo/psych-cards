@@ -56,6 +56,20 @@ nav button.on { color: var(--accent); font-weight: 600; }
 .answers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
 .answers button { color: #fff; padding: 10px 2px 9px; font-weight: 600; font-size: 15px; }
 .answers button small { display: block; font-weight: 400; font-size: 11px; opacity: .9; margin-top: 2px; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; background: var(--card); color: var(--sub); border: 1px solid var(--line); border-radius: 99px; padding: 6px 12px; font-size: 13px; }
+.chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+.subj-tag { margin-bottom: 10px; font-size: 12px; }
+.tag.subj { background: transparent; border: 1px solid var(--accent); }
+#imp { margin-top: 28px; }
+#imp code { background: var(--accent-soft); color: var(--accent); padding: 1px 5px; border-radius: 5px; font-size: 13px; word-break: break-all; }
+#imp textarea { margin-top: 8px; min-height: 140px; font-size: 14px; }
+.imp-res { margin-top: 12px; font-size: 14px; }
+.imp-res p { margin: 8px 0; }
+.imp-list { border: 1px solid var(--line); border-radius: 10px; padding: 4px 10px; font-size: 13px; line-height: 1.5; }
+.imp-list > div { padding: 6px 0; border-bottom: 1px solid var(--line); word-break: break-word; }
+.imp-list > div:last-child { border-bottom: none; }
 .answers.two { grid-template-columns: 1fr 1fr; }
 .freebar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
   font-size: 13px; color: var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
@@ -120,6 +134,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
 <!-- ===== 複習 ===== -->
 <section class="view on" id="v-review">
   <h1>今天的複習</h1>
+  <div class="chips" id="subj"></div>
   <div class="counts">
     <span class="c-new">新卡<b id="n-new">0</b></span>
     <span class="c-learn">學習中<b id="n-learn">0</b></span>
@@ -137,6 +152,9 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   <input id="f-en" placeholder="例：Classical Conditioning" autocomplete="off" autocapitalize="words">
   <label for="f-def">定義</label>
   <textarea id="f-def" placeholder="翻面後看到的解釋"></textarea>
+  <label for="f-subj">科目（選填）</label>
+  <input id="f-subj" list="subj-list" placeholder="例：變態心理學" autocomplete="off">
+  <datalist id="subj-list"></datalist>
   <div class="warn" id="f-warn"></div>
   <div class="formrow">
     <button class="btn ghost" id="f-cancel" style="display:none">取消</button>
@@ -144,6 +162,25 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   </div>
   <div class="formrow" id="f-delrow" style="display:none">
     <button class="btn danger" id="f-del">刪除這張卡</button>
+  </div>
+
+  <div class="panel" id="imp">
+    <h3>📥 大量匯入</h3>
+    <p>一行一張卡，欄位依序是：<b>英文、中文翻譯、中文定義、科目</b>（科目可以不填）。</p>
+    <p>・從 Excel／Google 試算表選這幾欄複製，直接貼進來<br>・手機打字就用 <code>|</code> 隔開，例如：<br><code>anxiety | 焦慮 | 對未來可能發生的壞事感到擔心不安的情緒 | 變態心理學</code></p>
+    <textarea id="imp-text" placeholder="anxiety | 焦慮 | 對未來可能發生的壞事感到擔心不安的情緒 | 變態心理學&#10;conformity | 從眾 | 因為團體壓力而改變自己的想法或行為 | 社會心理學"></textarea>
+    <label for="imp-subj">這批的科目（第 4 欄沒填的卡會用這個）</label>
+    <input id="imp-subj" list="subj-list" placeholder="例：社會心理學（可不填）" autocomplete="off">
+    <div class="row">
+      <button class="btn ghost" id="imp-check">檢查內容</button>
+      <button class="btn ghost" id="imp-file-btn">選 CSV 檔</button>
+      <input type="file" id="imp-file" accept=".csv,.tsv,.txt,text/csv,text/plain,text/comma-separated-values,text/tab-separated-values,application/vnd.ms-excel" hidden>
+    </div>
+    <div class="row">
+      <button class="linkbtn" id="imp-sample">填入範例</button>
+      <button class="linkbtn" id="imp-tpl">下載範例 CSV 檔</button>
+    </div>
+    <div id="imp-preview"></div>
   </div>
 </section>
 
@@ -198,7 +235,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
 
   const PHASES = ['learning', 'relearning', 'review'];
   const num = (v) => { const n = Number(v); return isFinite(n) ? n : null; };
-  function blank() { return { cards: [], state: {}, daily: {}, settings: { newPerDay: 20 }, lastBackup: 0 }; }
+  function blank() { return { cards: [], state: {}, daily: {}, settings: { newPerDay: 20, studySubjects: null }, lastBackup: 0 }; }
   // 把任何來源（本機或備份檔）的資料整理成乾淨格式；格式不對就丟 Error
   function sanitize(o) {
     if (!o || !Array.isArray(o.cards)) throw new Error('bad');
@@ -207,6 +244,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
       if (!c || typeof c.term !== 'string' || c.id == null) return;
       const id = String(c.id); if (seen.has(id)) return; seen.add(id);
       cards.push({ id, term: c.term, en: typeof c.en === 'string' ? c.en : '', def: typeof c.def === 'string' ? c.def : '',
+                   subject: typeof c.subject === 'string' ? c.subject.trim() : '',
                    created: num(c.created) || 0, updated: num(c.updated) || undefined });
     });
     const state = {};
@@ -216,9 +254,11 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
       state[id] = { phase: s.phase, due: num(s.due), step: num(s.step) || 0, reps: num(s.reps) || 0,
                     interval: num(s.interval) || undefined, ease: num(s.ease) || undefined, ts: num(s.ts) || undefined };
     });
-    const d = o.daily || {};
+    const d = o.daily || {}, st = o.settings || {};
+    // studySubjects：複習時選了哪些科目（'' ＝未分類）；null＝全部
+    const ss = Array.isArray(st.studySubjects) ? st.studySubjects.filter(x => typeof x === 'string') : null;
     return { cards, state, daily: { date: String(d.date || ''), newCount: num(d.newCount) || 0 },
-             settings: { newPerDay: Math.max(0, Math.min(999, parseInt((o.settings || {}).newPerDay, 10) || 20)) },
+             settings: { newPerDay: Math.max(0, Math.min(999, parseInt(st.newPerDay, 10) || 20)), studySubjects: ss },
              lastBackup: num(o.lastBackup) || 0 };
   }
   function load() {
@@ -275,12 +315,60 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     return db.daily;
   }
 
+  // ---- 科目 ----
+  const subjOf = (c) => (c.subject || '').trim();
+  const subjectList = () => Array.from(new Set(db.cards.map(subjOf).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  // 目前選了哪些科目；null＝全部。濾掉已經沒有卡的科目，濾完是空的就當全部
+  function studySel() {
+    const sel = db.settings.studySubjects;
+    if (!Array.isArray(sel)) return null;
+    const exist = new Set(db.cards.map(subjOf));
+    const s = sel.filter(x => exist.has(x));
+    return s.length ? s : null;
+  }
+  const inStudy = (c) => { const s = studySel(); return !s || s.includes(subjOf(c)); };
+  const studyCards = () => db.cards.filter(inStudy);
+  function renderSubj() {
+    const box = $('subj'), list = subjectList(), hasNone = db.cards.some(c => !subjOf(c));
+    // 選取裡有已經沒卡的科目 → 從設定刪掉，免得之後那科又加回來時篩選被悄悄套回去
+    const saved = db.settings.studySubjects, sel = studySel();
+    if (Array.isArray(saved) && JSON.stringify(saved) !== JSON.stringify(sel)) mutate(() => { db.settings.studySubjects = sel; });
+    if (!list.length) { box.innerHTML = ''; box.style.display = 'none'; return; }   // 還沒有任何科目就不顯示
+    box.style.display = '';
+    const scroll = box.scrollLeft;   // 重畫後維持左右捲動位置
+    const chip = (v, label) => '<button class="chip' + (sel && sel.includes(v) ? ' on' : '') + '" data-s="' + esc(v) + '">' + esc(label) + '</button>';
+    box.innerHTML = '<button class="chip' + (sel ? '' : ' on') + '" data-all="1">全部</button>' +
+      list.map(s => chip(s, s)).join('') + (hasNone ? chip('', '未分類') : '');
+    box.scrollLeft = scroll;
+    box.querySelectorAll('.chip').forEach(b => b.onclick = () => {
+      let next;
+      if (b.dataset.all) next = null;
+      else {
+        const v = b.dataset.s, cur0 = studySel() || [];
+        next = cur0.includes(v) ? cur0.filter(x => x !== v) : cur0.concat([v]);
+        if (!next.length) next = null;
+      }
+      if (mutate(() => { db.settings.studySubjects = next; })) {
+        cur = null; if (free) free = { round: 0, left: [] };   // 換科目：重新出卡，自由複習從第 1 輪重新洗牌
+        nextCard();
+      }
+    });
+  }
+
   // ---- 排程 ----
   let queue = [], cur = null, flipped = false;
+  // 今天要出的卡（學習中＋到期複習＋新卡）；cards 不給＝依目前選的科目
+  function dueCards(cards) {
+    const now = Date.now(), ahead = now + 20 * MIN, dayEnd = dayStart(now) + DAY;
+    return (cards || studyCards()).filter(c => {
+      const st = db.state[c.id];
+      return !st || ((st.phase === 'learning' || st.phase === 'relearning') && st.due <= ahead) || (st.phase === 'review' && st.due < dayEnd);
+    });
+  }
   function buildQueue() {
     const now = Date.now(), ahead = now + 20 * MIN, dayEnd = dayStart(now) + DAY;
     const learn = [], rev = [], fresh = [];
-    db.cards.forEach(c => {
+    studyCards().forEach(c => {
       const st = db.state[c.id];
       if (!st) fresh.push(c);
       else if ((st.phase === 'learning' || st.phase === 'relearning') && st.due <= ahead) learn.push(c);
@@ -355,12 +443,12 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   function startFree() { free = { round: 0, left: [] }; cur = null; nextCard(); }
   function stopFree() { free = null; cur = null; nextCard(); }
   function nextFree(avoidId) {
-    const ids = new Set(db.cards.map(c => c.id));
-    free.left = free.left.filter(id => ids.has(id));   // 卡片可能剛被刪掉
+    const pool = studyCards(), ids = new Set(pool.map(c => c.id));
+    free.left = free.left.filter(id => ids.has(id));   // 卡片可能剛被刪掉、或換了科目
     if (!avoidId && cur && free.left.includes(cur.id)) { cur = db.cards.find(c => c.id === cur.id); renderStudy(); return; }
     if (!free.left.length) {   // 這一輪輪完 → 重新洗牌開下一輪，並避免新一輪第一張剛好是上一張
       free.round++;
-      free.left = sh(db.cards.map(c => c.id));
+      free.left = sh(pool.map(c => c.id));
       if (free.left.length > 1 && free.left[0] === avoidId) free.left.push(free.left.shift());
     }
     cur = db.cards.find(c => c.id === free.left[0]) || null;
@@ -393,16 +481,21 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   }
   function renderStudy() {
     const box = $('study');
+    renderSubj();
     if (!db.cards.length) {
       box.innerHTML = '<div class="done"><div class="big">🌱</div><p>還沒有任何卡片</p><button class="btn" id="go-add">新增第一個名詞</button></div>';
       $('go-add').onclick = () => show('add');
       return;
     }
     if (!cur) {
-      box.innerHTML = '<div class="done"><div class="big">🎉</div><p><b>今天排定的份做完了</b></p>' +
-        '<p class="muted">想再多背，可以自由複習全部 ' + db.cards.length + ' 張卡。<br>自由複習不會改動下次出現的日期。</p>' +
+      const sel = studySel();
+      const others = sel ? dueCards(db.cards).filter(c => !inStudy(c)).length : 0;   // 沒選到的科目今天還有幾張要背
+      box.innerHTML = '<div class="done"><div class="big">🎉</div><p><b>' + (sel ? '選的科目' : '今天') + '排定的份做完了</b></p>' +
+        '<p class="muted">想再多背，可以自由複習' + (sel ? '選的科目共 ' : '全部 ') + studyCards().length + ' 張卡。<br>自由複習不會改動下次出現的日期。</p>' +
+        (others ? '<p class="warn">其他科目還有 ' + others + ' 張今天要背 <button class="linkbtn" id="go-all">看全部科目</button></p>' : '') +
         '<button class="btn" id="go-free">繼續自由複習</button></div>';
       $('go-free').onclick = startFree;
+      if ($('go-all')) $('go-all').onclick = () => { if (mutate(() => { db.settings.studySubjects = null; })) { cur = null; nextCard(); } };
       return;
     }
     const c = cur;
@@ -411,7 +504,8 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
       h += '<div class="freebar"><span>🔁 自由複習 · 第 ' + free.round + ' 輪 · 這輪還剩 ' + free.left.length + ' 張</span>' +
         '<button class="linkbtn" id="stop-free">' + (queue.length ? '回到排程（' + queue.length + ' 張到期）' : '結束') + '</button></div>';
     }
-    h += '<div class="flash" id="flash"><div class="term">' + esc(c.term) + '</div>' +
+    h += '<div class="flash" id="flash">' + (subjOf(c) ? '<div class="subj-tag"><span class="tag">' + esc(subjOf(c)) + '</span></div>' : '') +
+      '<div class="term">' + esc(c.term) + '</div>' +
       (c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');
     if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
     else h += '<div class="hint">先想想它的定義，再點一下翻面</div>';
@@ -453,11 +547,16 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
 
   // ---- 新增／編輯 ----
   let editing = null;   // 正在編輯的卡片 id；null＝新增
-  function resetForm() {
+  function fillSubjList() { $('subj-list').innerHTML = subjectList().map(s => '<option value="' + esc(s) + '">').join(''); }
+  // keepSubj：連續新增同一科時，科目欄留著不用重打
+  function resetForm(keepSubj) {
     editing = null;
     $('f-term').value = ''; $('f-en').value = ''; $('f-def').value = ''; $('f-warn').textContent = '';
+    if (!keepSubj) $('f-subj').value = '';
+    fillSubjList();
     $('add-title').textContent = '新增名詞'; $('f-save').textContent = '儲存並繼續新增';
     $('f-cancel').style.display = 'none'; $('f-delrow').style.display = 'none';
+    $('imp').style.display = '';
   }
   let returnTo = 'list';
   function openEdit(id) {
@@ -466,27 +565,35 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     show('add', true);
     editing = id;
     $('f-term').value = c.term; $('f-en').value = c.en || ''; $('f-def').value = c.def || ''; $('f-warn').textContent = '';
+    $('f-subj').value = subjOf(c); fillSubjList();
     $('add-title').textContent = '編輯名詞'; $('f-save').textContent = '儲存修改';
     $('f-cancel').style.display = ''; $('f-delrow').style.display = '';
+    $('imp').style.display = 'none';   // 編輯時不顯示匯入區
   }
-  function dupOf(term, exceptId) { const n = norm(term); return db.cards.find(c => c.id !== exceptId && norm(c.term) === n); }
-  $('f-term').addEventListener('input', () => {
-    const d = dupOf($('f-term').value, editing);
-    $('f-warn').textContent = d ? '已經有「' + d.term + '」這張卡了' : '';
-  });
+  // 重複＝中文和英文都一樣（同一個中文翻譯可能對應不同英文字，例如 anxiety／anxiousness 都是「焦慮」）
+  const dupKey = (term, en) => norm(term) + '\u0001' + norm(en);
+  function dupOf(term, en, exceptId) { const k = dupKey(term, en); return db.cards.find(c => c.id !== exceptId && dupKey(c.term, c.en) === k); }
+  const cardName = (c) => { const x = [c.en, subjOf(c)].filter(Boolean); return c.term + (x.length ? '（' + x.join('・') + '）' : ''); };   // 例：焦慮（anxiety・變態心理學）
+  const dupWarn = () => {
+    const d = dupOf($('f-term').value, $('f-en').value, editing);
+    $('f-warn').textContent = d ? '已經有「' + cardName(d) + '」這張卡了' : '';
+  };
+  $('f-term').addEventListener('input', dupWarn);
+  $('f-en').addEventListener('input', dupWarn);
   $('f-save').onclick = () => {
-    const term = $('f-term').value.trim(), en = $('f-en').value.trim(), def = $('f-def').value.trim();
+    const term = $('f-term').value.trim(), en = $('f-en').value.trim(), def = $('f-def').value.trim(), subject = $('f-subj').value.trim();
     if (!term) { $('f-warn').textContent = '中文名詞不能空白'; $('f-term').focus(); return; }
-    if (dupOf(term, editing)) { $('f-warn').textContent = '已經有「' + term + '」這張卡了，請改用編輯'; return; }
+    const d = dupOf(term, en, editing);
+    if (d) { $('f-warn').textContent = '已經有「' + cardName(d) + '」這張卡了，請改用編輯'; return; }
     if (editing) {
       const id = editing;
       // 只改內容，id 不變 → 背誦進度保留
-      if (mutate(() => { const c = db.cards.find(x => x.id === id); if (c) Object.assign(c, { term, en, def, updated: Date.now() }); })) {
+      if (mutate(() => { const c = db.cards.find(x => x.id === id); if (c) Object.assign(c, { term, en, def, subject, updated: Date.now() }); })) {
         toast('已儲存修改'); const back = returnTo; resetForm(); show(back);
       }
     } else {
-      if (mutate(() => db.cards.push({ id: newId(), term, en, def, created: Date.now() }))) {
-        toast('已新增「' + term + '」'); resetForm(); $('f-term').focus();
+      if (mutate(() => db.cards.push({ id: newId(), term, en, def, subject, created: Date.now() }))) {
+        toast('已新增「' + term + '」'); resetForm(true); $('f-term').focus();
       }
     }
   };
@@ -501,6 +608,149 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     }
   };
 
+  // ---- 大量匯入 ----
+  // 欄位順序固定：英文、中文翻譯、中文定義、科目（選填）
+  // 分隔符號：選檔＝一律 CSV／TSV；貼上＝看第一個非空行（有 Tab＝試算表、有 |＝手打、否則 CSV）
+  const PIPE = /[|｜]/;
+  function parseRows(text, fromFile) {
+    text = String(text || '').replace(/^﻿/, '').replace(/\r\n?/g, '\n');
+    const first = text.split('\n').find(s => s.trim()) || '';
+    const mode = first.includes('\t') ? 'tab' : (!fromFile && PIPE.test(first) ? 'pipe' : 'csv');
+    const rows = [];   // { line, cols, unclosed }
+    if (mode === 'pipe') {
+      text.split('\n').forEach((s, i) => {
+        if (!s.includes('-') || !/^[\s|｜:\-]+$/.test(s)) {   // 跳過 Markdown 表格的分隔列 |---|---|
+          s = s.replace(/^\s*[|｜]/, '').replace(/[|｜]\s*$/, '');   // 去掉 Markdown 表格頭尾的 |
+          rows.push({ line: i + 1, cols: s.split(PIPE) });
+        }
+      });
+    } else {
+      // 標準 CSV／TSV：支援 "..." 包住含逗號、換行、"" 的欄位
+      const d = mode === 'tab' ? '\t' : ',';
+      let cols = [], f = '', q = false, line = 1, start = 1;
+      for (let i = 0; i <= text.length; i++) {
+        const ch = text[i];
+        if (q) {
+          if (ch === '"' && text[i + 1] === '"') { f += '"'; i++; }
+          else if (ch === '"') q = false;
+          else if (ch === undefined) { cols.push(f); rows.push({ line: start, cols, unclosed: true }); }   // 引號沒關到檔尾
+          else { if (ch === '\n') line++; f += ch; }
+        } else if (ch === '"' && f.trim() === '') { q = true; f = ''; }
+        else if (ch === d) { cols.push(f); f = ''; }
+        else if (ch === '\n' || ch === undefined) { cols.push(f); rows.push({ line: start, cols }); cols = []; f = ''; line++; start = line; }
+        else f += ch;
+      }
+    }
+    return rows.map(r => {
+      const c = r.cols.map(s => s.trim());
+      while (c.length && !c[c.length - 1]) c.pop();   // 結尾多打的分隔符號／多選的空白欄
+      return { line: r.line, cols: c, unclosed: r.unclosed };
+    }).filter(r => r.cols.length);
+  }
+  const hasCJK = (s) => /[㐀-鿿豈-﫿]/.test(s);
+  const isLatin = (s) => /[A-Za-z]/.test(s) && !hasCJK(s);
+  let impPlan = null, impFromFile = false;   // 檢查後待寫入的卡片；文字框內容是否來自選檔
+  function checkImport(text, fromFile) {
+    const rows = parseRows(text, fromFile);
+    if (rows.length && (/^(英文|english|en\b|word|term)/i.test(rows[0].cols[0] || '') || /^(中文|chinese|翻譯|translation)/i.test(rows[0].cols[1] || ''))) rows.shift();   // 標題列
+    const batchSubj = $('imp-subj').value.trim();
+    const add = [], dup = [], bad = [], seen = new Set(db.cards.map(c => dupKey(c.term, c.en)));
+    rows.forEach(r => {
+      const raw = r.cols.join(' | ');
+      const [en, term, def, subj] = [r.cols[0] || '', r.cols[1] || '', r.cols[2] || '', r.cols[3] || ''];
+      if (r.unclosed) { bad.push({ line: r.line, why: '有 " 引號沒有關起來，這行之後的內容都被吃進同一格', raw }); return; }
+      if (r.cols.length < 2) { bad.push({ line: r.line, why: '只有一欄，找不到分隔符號', raw }); return; }
+      if (r.cols.length > 4) { bad.push({ line: r.line, why: '欄位太多（' + r.cols.length + ' 欄）。定義裡有半形逗號或 | 的話，改成全形「，」或用 "雙引號" 包住', raw }); return; }
+      if (!en) { bad.push({ line: r.line, why: '英文是空的', raw }); return; }
+      if (!term) { bad.push({ line: r.line, why: '中文翻譯是空的', raw }); return; }
+      if (hasCJK(en) && isLatin(term)) { bad.push({ line: r.line, why: '第一欄是中文、第二欄是英文，順序可能反了（第一欄要放英文）', raw }); return; }
+      const k = dupKey(term, en);
+      if (seen.has(k)) {
+        const old = db.cards.find(c => dupKey(c.term, c.en) === k);   // 找得到＝已存在的卡；找不到＝這批裡自己重複
+        dup.push(old ? cardName(old) : term + '（' + en + '，這批裡重複）'); return;
+      }
+      seen.add(k);
+      add.push({ term, en, def, subject: subj || batchSubj });
+    });
+    return { add, dup, bad };
+  }
+  function renderImport() {
+    const p = impPlan, box = $('imp-preview');
+    if (!p) { box.innerHTML = ''; return; }
+    const noDef = p.add.filter(c => !c.def).length;
+    const subjCount = {};
+    p.add.forEach(c => { const s = c.subject || '（未分類）'; subjCount[s] = (subjCount[s] || 0) + 1; });
+    let h = '<div class="imp-res">';
+    h += '<p><b>可以新增 ' + p.add.length + ' 張</b>' + (noDef ? '（其中 ' + noDef + ' 張沒有定義，翻面會是空的）' : '') + '</p>';
+    if (p.add.length) {
+      h += '<p class="muted">科目：' + Object.keys(subjCount).map(s => esc(s) + ' ' + subjCount[s] + ' 張').join('、') + '</p>';
+      h += '<div class="imp-list">' + p.add.slice(0, 5).map(c => '<div><b>' + esc(c.term) + '</b> <i>' + esc(c.en) + '</i>' +
+        (c.subject ? ' <span class="tag">' + esc(c.subject) + '</span>' : '') + (c.def ? '<br><span class="muted">' + esc(c.def) + '</span>' : '') + '</div>').join('') +
+        (p.add.length > 5 ? '<div class="muted">…還有 ' + (p.add.length - 5) + ' 張</div>' : '') + '</div>';
+    }
+    if (p.dup.length) h += '<p class="muted">已經有、會跳過 ' + p.dup.length + ' 張：' + esc(p.dup.slice(0, 10).join('、')) + (p.dup.length > 10 ? '…' : '') + '</p>';
+    if (p.bad.length) h += '<p class="warn">有問題、不會匯入 ' + p.bad.length + ' 行：</p><div class="imp-list">' +
+      p.bad.slice(0, 10).map(b => '<div>第 ' + b.line + ' 行：' + esc(b.why) + '<br><span class="muted">' + esc(b.raw.slice(0, 60)) + '</span></div>').join('') + (p.bad.length > 10 ? '<div class="muted">…還有 ' + (p.bad.length - 10) + ' 行</div>' : '') + '</div>';
+    if (p.add.length) h += '<button class="btn" id="imp-go" style="width:100%;margin-top:10px">確定匯入 ' + p.add.length + ' 張</button>';
+    h += '</div>';
+    box.innerHTML = h;
+    if ($('imp-go')) $('imp-go').onclick = doImport;
+  }
+  function doImport() {
+    const p = impPlan; if (!p || !p.add.length) return;
+    // 檢查完到按下確定之間資料可能變了（手動新增、別的分頁），寫入前對「現在的」卡片再擋一次重複
+    const have = new Set(db.cards.map(c => dupKey(c.term, c.en)));
+    const list = p.add.filter(c => !have.has(dupKey(c.term, c.en)));
+    const t0 = Date.now(), n = list.length;
+    // created 依序 +1ms，新卡出現的順序＝匯入檔的順序
+    if (mutate(() => { list.forEach((c, i) => db.cards.push({ id: newId() + i.toString(36), term: c.term, en: c.en, def: c.def, subject: c.subject, created: t0 + i })); })) {
+      impPlan = null; impFromFile = false; $('imp-text').value = ''; renderImport(); fillSubjList();
+      toast('已匯入 ' + n + ' 張' + (n < p.add.length ? '（' + (p.add.length - n) + ' 張剛好已經有了）' : ''));
+    }
+  }
+  $('imp-check').onclick = () => {
+    if (!$('imp-text').value.trim()) { toast('先貼上要匯入的內容'); return; }
+    impPlan = checkImport($('imp-text').value, impFromFile); renderImport();
+  };
+  // 內容或這批科目改了，就要重新檢查；手動改過文字就不再當作檔案內容
+  $('imp-text').addEventListener('input', () => { impFromFile = false; if (impPlan) { impPlan = null; renderImport(); } });
+  $('imp-subj').addEventListener('input', () => { if (impPlan) { impPlan = null; renderImport(); } });
+  $('imp-file-btn').onclick = () => $('imp-file').click();
+  function decodeFile(buf) {
+    const b = new Uint8Array(buf);
+    if (b[0] === 0xFF && b[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);   // Excel「Unicode 文字」
+    if (b[0] === 0xFE && b[1] === 0xFF) return new TextDecoder('utf-16be').decode(buf);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+    catch (e) { return new TextDecoder('big5').decode(buf); }   // 舊版 Excel 存的 CSV 是 Big5
+  }
+  $('imp-file').onchange = () => {
+    const f = $('imp-file').files[0]; $('imp-file').value = '';
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      let text;
+      try { text = decodeFile(rd.result).replace(/^﻿/, ''); } catch (e) { alert('讀不出這個檔案，請用 Excel「另存新檔 → CSV UTF-8」再試一次'); return; }
+      $('imp-text').value = text; impFromFile = true;
+      impPlan = checkImport(text, true); renderImport();
+    };
+    rd.readAsArrayBuffer(f);
+  };
+  const SAMPLE = [
+    ['anxiety', '焦慮', '對未來可能發生的壞事感到擔心不安的情緒', '變態心理學'],
+    ['phobia', '畏懼症', '對特定事物或情境有強烈、不合理的害怕，並會刻意避開', '變態心理學'],
+    ['conformity', '從眾', '因為團體壓力而改變自己的想法或行為，讓自己和大家一致', '社會心理學'],
+    ['bystander effect', '旁觀者效應', '在場的人越多，每個人出手幫忙的可能性反而越低', '社會心理學']
+  ];
+  $('imp-sample').onclick = () => {
+    $('imp-text').value = SAMPLE.map(r => r.join(' | ')).join('\n'); impFromFile = false;
+    impPlan = null; renderImport(); toast('已填入範例，按「檢查內容」看看');
+  };
+  $('imp-tpl').onclick = () => {
+    const q = (s) => /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    const csv = '﻿英文,中文翻譯,中文定義,科目\r\n' + SAMPLE.map(r => r.map(q).join(',')).join('\r\n') + '\r\n';
+    saveFile('import-template.csv', csv, 'text/csv');
+  };
+
   // ---- 卡片庫 ----
   function statusOf(c) {
     const st = db.state[c.id];
@@ -512,20 +762,31 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   function renderList() {
     const q = norm($('q').value);
     const all = db.cards.slice().sort((a, b) => (b.created || 0) - (a.created || 0));
-    const hit = q ? all.filter(c => norm(c.term + ' ' + (c.en || '') + ' ' + (c.def || '')).includes(q)) : all;
+    const hit = q ? all.filter(c => norm(c.term + ' ' + (c.en || '') + ' ' + (c.def || '') + ' ' + subjOf(c)).includes(q)) : all;
     const learned = db.cards.filter(c => db.state[c.id]).length;
     $('list-sum').textContent = '共 ' + db.cards.length + ' 張，背過 ' + learned + ' 張' + (q ? '；搜尋到 ' + hit.length + ' 張' : '');
     $('list').innerHTML = hit.length ? hit.map(c =>
       '<div class="item" data-id="' + esc(c.id) + '"><div><span class="t">' + esc(c.term) + '</span>' +
       (c.en ? '<span class="e">' + esc(c.en) + '</span>' : '') + '</div>' +
       (c.def ? '<div class="d">' + esc(c.def) + '</div>' : '') +
-      '<div class="s"><span class="tag">' + statusOf(c) + '</span></div></div>').join('')
+      '<div class="s">' + (subjOf(c) ? '<span class="tag subj">' + esc(subjOf(c)) + '</span> ' : '') + '<span class="tag">' + statusOf(c) + '</span></div></div>').join('')
       : '<p class="muted">' + (q ? '找不到符合的卡片' : '還沒有卡片，到「新增」加第一張吧') + '</p>';
     $('list').querySelectorAll('.item').forEach(el => el.onclick = () => openEdit(el.dataset.id));
   }
   $('q').addEventListener('input', renderList);
 
   // ---- 設定與備份 ----
+  // 存檔給使用者：手機優先用分享選單（iPhone 可存到「檔案」App、Android 可存到雲端硬碟）；不支援才直接下載。使用者取消回傳 false
+  async function saveFile(name, text, type) {
+    try {
+      const file = new File([text], name, { type });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return true; }
+    } catch (e) { if (e && e.name === 'AbortError') return false; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 120 * 1000);
+    return true;
+  }
   const UNDO_KEY = KEY + '_before_restore';
   function renderSet() {
     $('b-last').textContent = db.lastBackup ? '上次按下備份：' + new Date(db.lastBackup).toLocaleString('zh-TW') : '還沒有備份過';
@@ -535,18 +796,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   }
   $('b-export').onclick = async () => {
     const d = new Date(), name = 'psych-cards-' + d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate() + '.json';
-    const text = JSON.stringify(db, null, 1);
-    let ok = false;
-    // 手機優先用分享選單（iPhone 可存到「檔案」App、Android 可存到雲端硬碟或傳給自己）；不支援才直接下載
-    try {
-      const file = new File([text], name, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); ok = true; }
-    } catch (e) { if (e && e.name === 'AbortError') { toast('已取消備份'); return; } }
-    if (!ok) {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 120 * 1000);
-    }
+    if (!(await saveFile(name, JSON.stringify(db, null, 1), 'application/json'))) { toast('已取消備份'); return; }
     mutate(() => { db.lastBackup = Date.now(); });
     renderSet();
   };
@@ -585,6 +835,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
     window.scrollTo(0, 0);
     if (v === 'review') nextCard();
+    else if (v === 'add') fillSubjList();
     else if (v === 'list') renderList();
     else if (v === 'set') renderSet();
   }
