@@ -506,7 +506,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     }
     h += '<div class="flash" id="flash">' + (subjOf(c) ? '<div class="subj-tag"><span class="tag">' + esc(subjOf(c)) + '</span></div>' : '') +
       '<div class="term">' + esc(c.term) + '</div>' +
-      (c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');
+      (flipped && c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');   // 英文翻面後才出現，正面只有中文
     if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
     else h += '<div class="hint">先想想它的定義，再點一下翻面</div>';
     h += '</div>';
