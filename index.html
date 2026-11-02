@@ -214,6 +214,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     <p>不要從 LINE 裡直接點開來用，資料會存在 LINE 裡面，也沒辦法備份。</p>
     <p>電腦上可用鍵盤：空白鍵翻面，1／2／3／4 對應「再來／困難／良好／簡單」。</p>
   </div>
+  <p class="muted" style="text-align:center;margin-top:18px">版本 2026-11-02b（有 🔊 念英文）</p>
 </section>
 
 <nav>
@@ -508,7 +509,7 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
     }
     h += '<div class="flash" id="flash">' + (subjOf(c) ? '<div class="subj-tag"><span class="tag">' + esc(subjOf(c)) + '</span></div>' : '') +
       // 正面＝英文；翻面才出中文和定義。沒填英文的卡只能用中文當正面
-      (c.en ? '<div class="term">' + esc(c.en) + (canSpeak ? ' <button class="speak" id="speak" aria-label="念英文">🔊</button>' : '') + '</div>' +
+      (c.en ? '<div class="term">' + esc(c.en) + ' <button class="speak" id="speak" aria-label="念英文">🔊</button></div>' +
               (flipped ? '<div class="zh">' + esc(c.term) + '</div>' : '')
             : '<div class="term">' + esc(c.term) + '</div>');
     if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
@@ -540,7 +541,8 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
   }
   if (canSpeak) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }   // 有些瀏覽器語音清單是晚一點才載入
   function speakEn(text) {
-    if (!canSpeak || !text) return;
+    if (!text) return;
+    if (!canSpeak) { toast('這個瀏覽器不支援朗讀，請改用 Safari 或 Chrome 打開'); return; }
     speechSynthesis.cancel();   // 連按時先停掉上一次
     const u = new SpeechSynthesisUtterance(text);
     u.lang = (enVoice && enVoice.lang) || 'en-US';
