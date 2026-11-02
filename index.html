@@ -49,7 +49,7 @@ nav button.on { color: var(--accent); font-weight: 600; }
   min-height: 300px; padding: 28px 22px; display: flex; flex-direction: column; justify-content: center;
   text-align: center; cursor: pointer; }
 .flash .term { font-size: 28px; font-weight: 700; line-height: 1.3; }
-.flash .en { font-size: 17px; color: var(--sub); margin-top: 6px; font-style: italic; }
+.flash .zh { font-size: 22px; font-weight: 600; margin-top: 10px; color: var(--accent); }
 .flash .def { margin-top: 22px; padding-top: 20px; border-top: 1px dashed var(--line); text-align: left;
   font-size: 17px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; }
 .flash .hint { margin-top: 26px; color: var(--sub); font-size: 13px; }
@@ -505,10 +505,11 @@ html.locked .gate { display: flex; position: fixed; inset: 0; align-items: cente
         '<button class="linkbtn" id="stop-free">' + (queue.length ? '回到排程（' + queue.length + ' 張到期）' : '結束') + '</button></div>';
     }
     h += '<div class="flash" id="flash">' + (subjOf(c) ? '<div class="subj-tag"><span class="tag">' + esc(subjOf(c)) + '</span></div>' : '') +
-      '<div class="term">' + esc(c.term) + '</div>' +
-      (flipped && c.en ? '<div class="en">' + esc(c.en) + '</div>' : '');   // 英文翻面後才出現，正面只有中文
+      // 正面＝英文；翻面才出中文和定義。沒填英文的卡只能用中文當正面
+      (c.en ? '<div class="term">' + esc(c.en) + '</div>' + (flipped ? '<div class="zh">' + esc(c.term) + '</div>' : '')
+            : '<div class="term">' + esc(c.term) + '</div>');
     if (flipped) h += '<div class="def">' + (c.def ? esc(c.def) : '<span class="muted">（沒有填定義）</span>') + '</div>';
-    else h += '<div class="hint">先想想它的定義，再點一下翻面</div>';
+    else h += '<div class="hint">' + (c.en ? '先想想它的中文和定義' : '先想想它的定義') + '，再點一下翻面</div>';
     h += '</div>';
     if (flipped && free) {
       h += '<div class="answers two"><button class="a-again" data-f="0">還不熟<small>這輪再出一次</small></button>' +
